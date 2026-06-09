@@ -1,0 +1,10 @@
+# Travel Planner AI Requirements
+# No external dependencies required - uses only Python standard library
+# The travel planner AI uses built-in modules:
+# - csv
+# - json  
+# - math
+# - collections
+
+# For development and testing (optional):
+# pytest>=7.0.0
