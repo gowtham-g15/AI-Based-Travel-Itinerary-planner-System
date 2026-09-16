@@ -189,4 +189,166 @@ router.post('/recommendations', auth, async (req, res) => {
     }
 });
 
+// Regenerate trip plan with real-time data
+router.post('/regenerate/:id', auth, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const itineraryId = req.params.id;
+        const { newPreferences, forceRealTime } = req.body;
+
+        // Fetch existing itinerary
+        const existingItinerary = await Itinerary.findOne({ 
+            _id: itineraryId, 
+            userId 
+        });
+
+        if (!existingItinerary) {
+            return res.status(404).json({
+                success: false,
+                message: 'Itinerary not found'
+            });
+        }
+
+        // Regenerate trip plan with real-time data
+        const regeneratedPlan = await planner.regenerateTripPlan(
+            existingItinerary.tripPlan,
+            newPreferences,
+            forceRealTime
+        );
+
+        if (regeneratedPlan.error) {
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to regenerate trip plan',
+                error: regeneratedPlan.error
+            });
+        }
+
+        // Update itinerary with regenerated plan
+        existingItinerary.tripPlan = regeneratedPlan;
+        if (newPreferences) {
+            existingItinerary.preferences = newPreferences;
+        }
+        existingItinerary.updatedAt = new Date();
+
+        await existingItinerary.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Trip plan regenerated successfully',
+            data: {
+                itineraryId: existingItinerary._id,
+                tripPlan: regeneratedPlan
+            }
+        });
+
+    } catch (error) {
+        console.error('Error regenerating trip plan:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+// Generate trip plan with real-time data
+router.post('/generate-realtime', auth, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const preferences = req.body;
+
+        // Validate required fields
+        const requiredFields = ['startDate', 'endDate', 'numberOfTravelers', 'budget'];
+        const missingFields = requiredFields.filter(field => !preferences[field]);
+        
+        if (missingFields.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing required fields',
+                missingFields
+            });
+        }
+
+        // Calculate trip duration
+        const start = new Date(preferences.startDate);
+        const end = new Date(preferences.endDate);
+        const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
+        // Generate trip plan using AI with real-time data
+        const tripPlan = await planner.generateTripPlanWithRealTime(
+            {
+                interests: preferences.interests || [],
+                min_rating: preferences.minRating || 3.5,
+                budget: preferences.budget,
+                destination: preferences.destination || 'Coimbatore'
+            },
+            days,
+            true // Force real-time data
+        );
+
+        if (tripPlan.error) {
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to generate trip plan',
+                error: tripPlan.error
+            });
+        }
+
+        // Save itinerary to database
+        const itinerary = new Itinerary({
+            userId,
+            destination: preferences.destination || 'Coimbatore',
+            startDate: preferences.startDate,
+            endDate: preferences.endDate,
+            numberOfTravelers: preferences.numberOfTravelers,
+            budget: preferences.budget,
+            tripPlan: tripPlan,
+            preferences: preferences,
+            createdAt: new Date()
+        });
+
+        await itinerary.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Trip plan generated successfully with real-time data',
+            data: {
+                itineraryId: itinerary._id,
+                tripPlan: tripPlan
+            }
+        });
+
+    } catch (error) {
+        console.error('Error generating trip plan with real-time data:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
+// Get real-time weather data for a location
+router.get('/weather/:location', auth, async (req, res) => {
+    try {
+        const { location } = req.params;
+        const { days } = req.query;
+
+        const weatherData = await planner.fetchWeatherForecast(location, parseInt(days) || 3);
+
+        res.status(200).json({
+            success: true,
+            data: weatherData
+        });
+    } catch (error) {
+        console.error('Error fetching weather data:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;

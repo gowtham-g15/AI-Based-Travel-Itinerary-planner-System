@@ -11,8 +11,12 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Connect to database
-connectDB();
+// Connect to database without crashing the app if MongoDB is unavailable.
+let dbConnected = false;
+
+(async () => {
+  dbConnected = await connectDB();
+})();
 
 // CORS configuration
 const corsOptions = {
@@ -39,7 +43,11 @@ app.use('/api/profile', profileRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Travel Planner API is running' });
+  res.json({
+    status: 'OK',
+    message: 'Travel Planner API is running',
+    database: dbConnected ? 'connected' : 'disconnected'
+  });
 });
 
 // Error handling middleware

@@ -65,6 +65,27 @@ export const itineraryAPI = {
     });
   },
 
+  // Generate trip plan with real-time data
+  generateRealTime: async (formData) => {
+    return apiRequest('/itinerary/generate-realtime', {
+      method: 'POST',
+      body: JSON.stringify(formData)
+    });
+  },
+
+  // Regenerate existing trip plan with real-time data
+  regenerate: async (id, newPreferences = null, forceRealTime = true) => {
+    return apiRequest(`/itinerary/regenerate/${id}`, {
+      method: 'POST',
+      body: JSON.stringify({ newPreferences, forceRealTime })
+    });
+  },
+
+  // Get weather data for a location
+  getWeather: async (location, days = 3) => {
+    return apiRequest(`/itinerary/weather/${location}?days=${days}`);
+  },
+
   getUserItineraries: async () => {
     return apiRequest('/itinerary/user');
   },
